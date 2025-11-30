@@ -25,8 +25,12 @@ export class HubSpotClient {
   }
 
   // メール一覧取得
-  async listEmails(limit = 20, offset = 0) {
-    return this.request(`/marketing/v3/emails?limit=${limit}&offset=${offset}`);
+  async listEmails(limit = 20, offset = 0, sort?: string) {
+    let url = `/marketing/v3/emails?limit=${limit}&offset=${offset}`;
+    if (sort) {
+      url += `&sort=${encodeURIComponent(sort)}`;
+    }
+    return this.request(url);
   }
 
   // メール詳細取得
@@ -50,26 +54,39 @@ export class HubSpotClient {
     });
   }
 
-  // メール複製
-  async cloneEmail(emailId: string, newName: string) {
-    const original = await this.getEmail(emailId);
-    return this.createEmail({
-      name: newName,
-      subject: original.subject,
-      emailBody: original.emailBody,
-      emailType: original.emailType || 'BATCH_EMAIL',
-      state: 'DRAFT',
-    });
-  }
-
-  // メール下書き作成（よく使う簡易版）
-  async createDraftEmail(name: string, subject: string, htmlBody: string) {
-    return this.createEmail({
+  // メール下書き作成
+  async createDraftEmail(
+    name: string,
+    subject: string,
+    options?: {
+      htmlBody?: string;
+      content?: any;
+      from?: any;
+      subscriptionDetails?: any;
+      to?: any;
+    }
+  ) {
+    const data: any = {
       name,
       subject,
-      emailBody: htmlBody,
       emailType: 'BATCH_EMAIL',
       state: 'DRAFT',
-    });
+    };
+    if (options?.htmlBody) {
+      data.emailBody = options.htmlBody;
+    }
+    if (options?.content) {
+      data.content = options.content;
+    }
+    if (options?.from) {
+      data.from = options.from;
+    }
+    if (options?.subscriptionDetails) {
+      data.subscriptionDetails = options.subscriptionDetails;
+    }
+    if (options?.to) {
+      data.to = options.to;
+    }
+    return this.createEmail(data);
   }
 }

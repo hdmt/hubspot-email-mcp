@@ -8,7 +8,6 @@ HubSpot Marketing Email API用のModel Context Protocol (MCP) サーバーです
 - メール詳細の取得
 - メール下書きの作成
 - メールの更新
-- メールの複製
 
 **注意:** 誤送信防止のため、メール送信機能は実装していません。
 
@@ -23,10 +22,10 @@ npm install
 ### 2. HubSpot Access Token の取得
 
 1. HubSpotアカウントにログイン
-2. Settings > Integrations > Private Apps に移動
-3. 新しいPrivate Appを作成
-4. 必要なスコープを設定（Marketing Emails関連）
-5. Access Tokenをコピー
+2. 開発 > 旧アプリ に移動
+3. 新しいアプリを作成
+4. スコープを設定: `content`（Marketing Emails用）
+5. Access Tokenをコピー（`pat-na1-...` 形式）
 
 ### 3. ビルド
 

@@ -10,7 +10,6 @@ import {
   GetEmailSchema,
   CreateDraftEmailSchema,
   UpdateEmailSchema,
-  CloneEmailSchema,
 } from './tools/types.js';
 
 export class HubSpotEmailMCPServer {
@@ -46,6 +45,7 @@ export class HubSpotEmailMCPServer {
             properties: {
               limit: { type: 'number', description: '取得件数（デフォルト: 20）' },
               offset: { type: 'number', description: 'オフセット（デフォルト: 0）' },
+              sort: { type: 'string', description: 'ソート項目 (name, createdAt, updatedAt, createdBy, updatedBy)。降順は -createdAt のように - を付ける' },
             },
           },
         },
@@ -62,15 +62,19 @@ export class HubSpotEmailMCPServer {
         },
         {
           name: 'create_draft_email',
-          description: 'メールの下書きを作成',
+          description: 'メールの下書きを作成。既存メールを複製する場合はget_emailで取得したcontent等を渡す',
           inputSchema: {
             type: 'object',
             properties: {
               name: { type: 'string', description: 'キャンペーン名' },
               subject: { type: 'string', description: 'メール件名' },
-              htmlBody: { type: 'string', description: 'HTML本文' },
+              htmlBody: { type: 'string', description: 'HTML本文（シンプルなメール用）' },
+              content: { type: 'object', description: 'メールコンテンツ構造（flexAreas, widgets等を含む詳細設定）' },
+              from: { type: 'object', description: '送信者情報 { fromName, replyTo }' },
+              subscriptionDetails: { type: 'object', description: '配信設定 { officeLocationId }' },
+              to: { type: 'object', description: '送信先設定 { contactIlsLists, suppressGraymail }' },
             },
-            required: ['name', 'subject', 'htmlBody'],
+            required: ['name', 'subject'],
           },
         },
         {
@@ -82,24 +86,13 @@ export class HubSpotEmailMCPServer {
               emailId: { type: 'string', description: 'メールID' },
               name: { type: 'string', description: 'キャンペーン名' },
               subject: { type: 'string', description: 'メール件名' },
-              htmlBody: { type: 'string', description: 'HTML本文' },
+              htmlBody: { type: 'string', description: 'HTML本文（シンプルなメール用）' },
+              content: { type: 'object', description: 'メールコンテンツ構造（flexAreas, widgets等を含む詳細設定）' },
             },
             required: ['emailId'],
           },
         },
-        {
-          name: 'clone_email',
-          description: '既存のメールを複製して新しい下書きを作成',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              emailId: { type: 'string', description: '複製元のメールID' },
-              newName: { type: 'string', description: '複製後のキャンペーン名' },
-            },
-            required: ['emailId', 'newName'],
-          },
-        },
-      ],
+              ],
     }));
 
     // ツール実行
@@ -108,7 +101,7 @@ export class HubSpotEmailMCPServer {
         switch (request.params.name) {
           case 'list_emails': {
             const args = ListEmailsSchema.parse(request.params.arguments);
-            const result = await this.hubspot.listEmails(args.limit, args.offset);
+            const result = await this.hubspot.listEmails(args.limit, args.offset, args.sort);
             return {
               content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
             };
@@ -127,7 +120,13 @@ export class HubSpotEmailMCPServer {
             const result = await this.hubspot.createDraftEmail(
               args.name,
               args.subject,
-              args.htmlBody
+              {
+                htmlBody: args.htmlBody,
+                content: args.content,
+                from: args.from,
+                subscriptionDetails: args.subscriptionDetails,
+                to: args.to,
+              }
             );
             return {
               content: [
@@ -145,24 +144,12 @@ export class HubSpotEmailMCPServer {
             if (args.name) updateData.name = args.name;
             if (args.subject) updateData.subject = args.subject;
             if (args.htmlBody) updateData.emailBody = args.htmlBody;
+            if (args.content) updateData.content = args.content;
 
             const result = await this.hubspot.updateEmail(args.emailId, updateData);
             return {
               content: [
                 { type: 'text', text: `✅ メールを更新しました\n${JSON.stringify(result, null, 2)}` },
-              ],
-            };
-          }
-
-          case 'clone_email': {
-            const args = CloneEmailSchema.parse(request.params.arguments);
-            const result = await this.hubspot.cloneEmail(args.emailId, args.newName);
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: `✅ メールを複製しました\n元ID: ${args.emailId}\n新ID: ${result.id}\n新名前: ${args.newName}`,
-                },
               ],
             };
           }

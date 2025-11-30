@@ -10,7 +10,6 @@ A Model Context Protocol (MCP) server for the HubSpot Marketing Email API. Manag
 - Get email details
 - Create email drafts
 - Update emails
-- Clone emails
 
 **Note:** This server does not include email sending functionality to prevent accidental sends.
 
@@ -25,10 +24,10 @@ npm install
 ### 2. Get HubSpot Access Token
 
 1. Log in to your HubSpot account
-2. Go to Settings > Integrations > Private Apps
-3. Create a new Private App
-4. Set the required scopes (Marketing Emails related)
-5. Copy the Access Token
+2. Go to Development > Legacy Apps (開発 > 旧アプリ)
+3. Create a new app
+4. Set the required scopes: `content` (for Marketing Emails)
+5. Copy the Access Token (`pat-na1-...` format)
 
 ### 3. Build
 
