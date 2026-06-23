@@ -95,6 +95,7 @@ export class HubSpotEmailMCPServer {
         },
               ],
     }));
+
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       try {
         switch (request.params.name) {
