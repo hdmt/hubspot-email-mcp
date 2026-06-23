@@ -1,9 +1,11 @@
 import { z } from 'zod';
 
 export const ListEmailsSchema = z.object({
-  limit: z.number().optional().default(20),
-  offset: z.number().optional().default(0),
-  sort: z.string().optional().describe('ソート項目 (name, createdAt, updatedAt, createdBy, updatedBy)。降順は -createdAt のように - を付ける'),
+  limit: z.number().optional().default(20).describe('Number of emails to return (default 20)'),
+  after: z.string().optional().describe('Pagination cursor from the previous response (paging.next.after)'),
+  sort: z.string().optional().describe('Sort field: name, createdAt, updatedAt, createdBy, updatedBy. Prefix with - for descending, e.g. -createdAt'),
+  createdAfter: z.string().optional().describe('Only emails created after this ISO-8601 timestamp, e.g. 2026-01-01T00:00:00Z'),
+  createdBefore: z.string().optional().describe('Only emails created before this ISO-8601 timestamp'),
 });
 
 export const GetEmailSchema = z.object({
@@ -11,20 +13,20 @@ export const GetEmailSchema = z.object({
 });
 
 export const CreateDraftEmailSchema = z.object({
-  name: z.string().describe('メールキャンペーンの名前'),
-  subject: z.string().describe('メールの件名'),
-  htmlBody: z.string().optional().describe('HTMLメール本文（シンプルなメール用）'),
-  content: z.any().optional().describe('メールコンテンツ構造（flexAreas, widgets等を含む詳細設定）'),
-  from: z.any().optional().describe('送信者情報 { fromName, replyTo }'),
-  subscriptionDetails: z.any().optional().describe('配信設定 { officeLocationId }'),
-  to: z.any().optional().describe('送信先設定 { contactIlsLists, suppressGraymail }'),
+  name: z.string().describe('Campaign name (internal email name in HubSpot)'),
+  subject: z.string().describe('Email subject line'),
+  htmlBody: z.string().optional().describe('HTML body (for simple emails)'),
+  content: z.any().optional().describe('Email content structure (flexAreas, widgets, and other HubSpot editor settings)'),
+  from: z.any().optional().describe('Sender info { fromName, replyTo }'),
+  subscriptionDetails: z.any().optional().describe('Subscription/delivery settings { officeLocationId }'),
+  to: z.any().optional().describe('Recipient settings { contactIlsLists, suppressGraymail }'),
 });
 
 export const UpdateEmailSchema = z.object({
   emailId: z.string(),
   name: z.string().optional(),
   subject: z.string().optional(),
-  htmlBody: z.string().optional().describe('HTMLメール本文（シンプルなメール用）'),
-  content: z.any().optional().describe('メールコンテンツ構造（flexAreas, widgets等を含む詳細設定）'),
+  htmlBody: z.string().optional().describe('HTML body (for simple emails)'),
+  content: z.any().optional().describe('Email content structure (flexAreas, widgets, and other HubSpot editor settings)'),
 });
 
