@@ -16,8 +16,8 @@ export class HubSpotEmailMCPServer {
   private server: Server;
   private hubspot: HubSpotClient;
 
-  constructor(accessToken: string) {
-    this.hubspot = new HubSpotClient(accessToken);
+  constructor(accessToken: string, portalId?: string) {
+    this.hubspot = new HubSpotClient(accessToken, portalId);
     this.server = new Server(
       {
         name: 'hubspot-email-mcp',
@@ -34,60 +34,61 @@ export class HubSpotEmailMCPServer {
   }
 
   private setupHandlers() {
-    // ツール一覧
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
       tools: [
         {
           name: 'list_emails',
-          description: 'HubSpotのマーケティングメール一覧を取得',
+          description: 'List HubSpot marketing emails. Each item includes a clickable hubspotUrl when HUBSPOT_PORTAL_ID is configured. Use createdAfter/createdBefore to narrow by date, then call get_email to read full content.',
           inputSchema: {
             type: 'object',
             properties: {
-              limit: { type: 'number', description: '取得件数（デフォルト: 20）' },
-              offset: { type: 'number', description: 'オフセット（デフォルト: 0）' },
-              sort: { type: 'string', description: 'ソート項目 (name, createdAt, updatedAt, createdBy, updatedBy)。降順は -createdAt のように - を付ける' },
+              limit: { type: 'number', description: 'Number of emails to return (default 20)' },
+              after: { type: 'string', description: 'Pagination cursor from a previous response (paging.next.after)' },
+              sort: { type: 'string', description: 'Sort field: name, createdAt, updatedAt, createdBy, updatedBy. Prefix with - for descending, e.g. -createdAt' },
+              createdAfter: { type: 'string', description: 'Only emails created after this ISO-8601 timestamp, e.g. 2026-01-01T00:00:00Z' },
+              createdBefore: { type: 'string', description: 'Only emails created before this ISO-8601 timestamp' },
             },
           },
         },
         {
           name: 'get_email',
-          description: '特定のメールの詳細情報を取得',
+          description: 'Get full details for a HubSpot marketing email by ID. Includes content, subject, and hubspotUrl when HUBSPOT_PORTAL_ID is configured.',
           inputSchema: {
             type: 'object',
             properties: {
-              emailId: { type: 'string', description: 'メールID' },
+              emailId: { type: 'string', description: 'HubSpot marketing email ID' },
             },
             required: ['emailId'],
           },
         },
         {
           name: 'create_draft_email',
-          description: 'メールの下書きを作成。既存メールを複製する場合はget_emailで取得したcontent等を渡す',
+          description: 'Create a draft marketing email. To clone an existing email, pass content and other fields from get_email.',
           inputSchema: {
             type: 'object',
             properties: {
-              name: { type: 'string', description: 'キャンペーン名' },
-              subject: { type: 'string', description: 'メール件名' },
-              htmlBody: { type: 'string', description: 'HTML本文（シンプルなメール用）' },
-              content: { type: 'object', description: 'メールコンテンツ構造（flexAreas, widgets等を含む詳細設定）' },
-              from: { type: 'object', description: '送信者情報 { fromName, replyTo }' },
-              subscriptionDetails: { type: 'object', description: '配信設定 { officeLocationId }' },
-              to: { type: 'object', description: '送信先設定 { contactIlsLists, suppressGraymail }' },
+              name: { type: 'string', description: 'Campaign name (internal email name in HubSpot)' },
+              subject: { type: 'string', description: 'Email subject line' },
+              htmlBody: { type: 'string', description: 'HTML body (for simple emails)' },
+              content: { type: 'object', description: 'Email content structure (flexAreas, widgets, and other HubSpot editor settings)' },
+              from: { type: 'object', description: 'Sender info { fromName, replyTo }' },
+              subscriptionDetails: { type: 'object', description: 'Subscription/delivery settings { officeLocationId }' },
+              to: { type: 'object', description: 'Recipient settings { contactIlsLists, suppressGraymail }' },
             },
             required: ['name', 'subject'],
           },
         },
         {
           name: 'update_email',
-          description: 'メールを更新',
+          description: 'Update an existing marketing email (name, subject, htmlBody, or content).',
           inputSchema: {
             type: 'object',
             properties: {
-              emailId: { type: 'string', description: 'メールID' },
-              name: { type: 'string', description: 'キャンペーン名' },
-              subject: { type: 'string', description: 'メール件名' },
-              htmlBody: { type: 'string', description: 'HTML本文（シンプルなメール用）' },
-              content: { type: 'object', description: 'メールコンテンツ構造（flexAreas, widgets等を含む詳細設定）' },
+              emailId: { type: 'string', description: 'HubSpot marketing email ID' },
+              name: { type: 'string', description: 'Campaign name (internal email name in HubSpot)' },
+              subject: { type: 'string', description: 'Email subject line' },
+              htmlBody: { type: 'string', description: 'HTML body (for simple emails)' },
+              content: { type: 'object', description: 'Email content structure (flexAreas, widgets, and other HubSpot editor settings)' },
             },
             required: ['emailId'],
           },
@@ -95,13 +96,18 @@ export class HubSpotEmailMCPServer {
               ],
     }));
 
-    // ツール実行
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       try {
         switch (request.params.name) {
           case 'list_emails': {
             const args = ListEmailsSchema.parse(request.params.arguments);
-            const result = await this.hubspot.listEmails(args.limit, args.offset, args.sort);
+            const result = await this.hubspot.listEmails({
+              limit: args.limit,
+              after: args.after,
+              sort: args.sort,
+              createdAfter: args.createdAfter,
+              createdBefore: args.createdBefore,
+            });
             return {
               content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
             };
@@ -132,7 +138,7 @@ export class HubSpotEmailMCPServer {
               content: [
                 {
                   type: 'text',
-                  text: `✅ メール下書きを作成しました\nID: ${result.id}\n名前: ${args.name}\n件名: ${args.subject}`,
+                  text: `✅ Draft email created\nID: ${result.id}\nName: ${args.name}\nSubject: ${args.subject}`,
                 },
               ],
             };
@@ -149,7 +155,7 @@ export class HubSpotEmailMCPServer {
             const result = await this.hubspot.updateEmail(args.emailId, updateData);
             return {
               content: [
-                { type: 'text', text: `✅ メールを更新しました\n${JSON.stringify(result, null, 2)}` },
+                { type: 'text', text: `✅ Email updated\n${JSON.stringify(result, null, 2)}` },
               ],
             };
           }
@@ -162,7 +168,7 @@ export class HubSpotEmailMCPServer {
           content: [
             {
               type: 'text',
-              text: `❌ エラー: ${error instanceof Error ? error.message : String(error)}`,
+              text: `❌ Error: ${error instanceof Error ? error.message : String(error)}`,
             },
           ],
           isError: true,
